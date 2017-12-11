@@ -1,0 +1,56 @@
+---
+
+- name: delete a stack
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+      AWS_REGION: "{{ lookup('env', 'AWS_REGION') }}"
+      STAGE: "{{ lookup('env', 'STAGE') }}"
+
+  tasks:
+    - name: remove policy from role
+      iam_policy:
+        region: "{{AWS_REGION}}"
+        iam_type: role
+        iam_name: nodes.{{clustername}}
+        policy_name: nodes.{{clustername}}
+        state: absent
+
+    - name: remove policy from role
+      iam_policy:
+        region: "{{AWS_REGION}}"
+        iam_type: role
+        iam_name: masters.{{clustername}}
+        policy_name: masters.{{clustername}}
+        state: absent
+
+    - name: remove policy from role
+      iam_policy:
+        region: "{{AWS_REGION}}"
+        iam_type: role
+        iam_name: assumable-roles.{{clustername}}
+        policy_name: assumable-roles.{{clustername}}
+        state: absent
+
+    - name: remove all managed policies
+      iam_role:
+        name: nodes.{{clustername}}
+        assume_role_policy_document: "{{ lookup('file','trust-policy.json') }}"
+        state: absent
+        managed_policy:
+          -
+
+    - name: remove all managed policies
+      iam_role:
+        name: masters.{{clustername}}
+        assume_role_policy_document: "{{ lookup('file','trust-policy.json') }}"
+        state: absent
+        managed_policy:
+          -
+
+    - name: delete the cluster
+      shell: kops delete cluster {{clustername}} --yes
+      args:
+        chdir: ../kops-configs/

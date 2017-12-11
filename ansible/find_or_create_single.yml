@@ -1,0 +1,139 @@
+---
+
+- name: provision or update a stack
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+      AWS_REGION: "{{ lookup('env', 'AWS_REGION') }}"
+      STAGE: "{{ lookup('env', 'STAGE') }}"
+
+  tasks:
+    - name: attempting to locate cluster
+      debug: msg="attempting to locate cluster {{clustername}}"
+
+    - ec2_instance_facts:
+        region: "{{AWS_REGION}}"
+        filters:
+          "instance-state-name": "running"
+          "tag:KubernetesCluster": "{{clustername}}"
+      register: current_instances
+
+    - name: instances-found
+      debug: msg="Located instances matching tag {{ current_instances['instances']|length }}."
+
+    - set_fact:
+        running_instances: current_instances['instances']|length
+
+    - name: render a new template
+      vars:
+        kops_values: "values/{{STAGE}}/{{AWS_REGION}}.yml"
+        kops_template: "cluster-1.0.yml"
+        kops_output: "rendered-templates/{{STAGE}}-{{AWS_REGION}}.yml"
+      shell: kops toolbox template {{clustername}} --values {{kops_values}} --template {{kops_template}} > {{kops_output}}
+      args:
+        chdir: ../kops-configs/
+
+    - name: update cluster using the new template
+      vars:
+        kops_output: "rendered-templates/{{STAGE}}-{{AWS_REGION}}.yml"
+      shell: kops replace -f {{kops_output}}
+      args:
+        chdir: ../kops-configs/
+      when: current_instances['instances']|length > 0
+
+    - name: trigger the proposal to update nodes in cluster
+      shell: kops update cluster {{clustername}} --yes
+      args:
+        chdir: ../kops-configs/
+      when: current_instances['instances']|length > 0
+
+    - name: rolling update the cluster
+      vars:
+        kops_output: "rendered-templates/{{STAGE}}-{{AWS_REGION}}.yml"
+      shell: kops update cluster {{clustername}} --yes
+      args:
+        chdir: ../kops-configs/
+      when: current_instances['instances']|length > 0
+
+    - name: validate the cluster after the update
+      shell: kops validate cluster {{clustername}}
+      args:
+        chdir: ../kops-configs/
+      when: current_instances['instances']|length > 0
+
+    - name: create the cluster
+      vars:
+        kops_output: "rendered-templates/{{STAGE}}-{{AWS_REGION}}.yml"
+      shell: kops create -f {{kops_output}}
+      args:
+        chdir: ../kops-configs/
+      when: current_instances['instances']|length == 0
+
+    - name: import and associate the preferred keypair
+      shell: kops create secret --name {{clustername}} sshpublickey admin -i infosec-infra.pub
+      args:
+        chdir: ../kops-configs/
+      when: current_instances['instances']|length == 0
+
+    - name: provision the nodes and masters
+      shell: kops update cluster {{clustername}} --yes
+      args:
+        chdir: ../kops-configs/
+      when: current_instances['instances']|length == 0
+
+    - template:
+        src: files/kops-master-iam-policy.json.j2
+        dest: temp/kops-master-iam-policy.json
+
+    - name: update master IAM role with custom hardened role
+      iam_policy:
+        region: "{{AWS_REGION}}"
+        iam_type: role
+        iam_name: masters.{{clustername}}
+        policy_name: masters.{{clustername}}
+        state: present
+        policy_document: temp/kops-master-iam-policy.json
+
+    - template:
+        src: files/kops-nodes-iam-policy.json.j2
+        dest: temp/kops-nodes-iam-policy.json
+
+    - name: update node IAM role with custom hardened role
+      iam_policy:
+        region: "{{AWS_REGION}}"
+        iam_type: role
+        iam_name: nodes.{{clustername}}
+        policy_name: nodes.{{clustername}}
+        state: present
+        policy_document: temp/kops-nodes-iam-policy.json
+
+    - template:
+        src: files/eis-assumable-roles.json.j2
+        dest: temp/eis-assumable-roles.json
+
+    - name: update node role with whitelist of assumable roles
+      iam_policy:
+        region: "{{AWS_REGION}}"
+        iam_type: role
+        iam_name: nodes.{{clustername}}
+        policy_name: assumable-roles.{{clustername}}
+        state: present
+        policy_document: temp/eis-assumable-roles.json
+
+    - name: add SSM support for nodes
+      iam_role:
+        name: nodes.{{clustername}}
+        assume_role_policy_document: "{{ lookup('file','trust-policy.json') }}"
+        state: present
+        managed_policy:
+          - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+
+    - name: add SSM support for masters
+      iam_role:
+        name: master.{{clustername}}
+        assume_role_policy_document: "{{ lookup('file','trust-policy.json') }}"
+        state: present
+        managed_policy:
+          - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM

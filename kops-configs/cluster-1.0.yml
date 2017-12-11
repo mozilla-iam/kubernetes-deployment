@@ -1,0 +1,219 @@
+apiVersion: kops/v1alpha2
+kind: Cluster
+metadata:
+  creationTimestamp: null
+  name: {{.name}}
+spec:
+  api:
+    dns: {}
+  authorization:
+    alwaysAllow: {}
+  channel: stable
+  cloudLabels:
+    Application: Kubernetes-Reference
+    Owner: Andrew Krug
+    Project: IAM
+    Team: InfoSec
+    Cost_Center: "1420"
+  cloudProvider: aws
+  configBase: {{.kopsState}}{{.name}}
+  dnsZone: {{.zoneId}}
+  etcdClusters:
+  - etcdMembers:
+    - encryptedVolume: true
+      instanceGroup: master-{{.awsRegion}}a
+      name: a
+    - encryptedVolume: true
+      instanceGroup: master-{{.awsRegion}}b
+      name: b
+    - encryptedVolume: true
+      instanceGroup: master-{{.awsRegion}}c
+      name: c
+    name: main
+  - etcdMembers:
+    - encryptedVolume: true
+      instanceGroup: master-{{.awsRegion}}a
+      name: a
+    - encryptedVolume: true
+      instanceGroup: master-{{.awsRegion}}b
+      name: b
+    - encryptedVolume: true
+      instanceGroup: master-{{.awsRegion}}c
+      name: c
+    name: events
+  iam:
+    allowContainerRegistry: true
+    legacy: false
+  kubernetesApiAccess:
+  - 0.0.0.0/0
+  kubernetesVersion: 1.8.4
+  masterPublicName: api.{{.name}}
+  networkCIDR: 172.20.0.0/16
+  networking:
+    calico:
+      crossSubnet: true
+  nonMasqueradeCIDR: 100.64.0.0/10
+  sshAccess:
+  - 0.0.0.0/0
+  subnets:
+  - cidr: 172.20.32.0/19
+    name: {{.awsRegion}}a
+    type: Public
+    zone: {{.awsRegion}}a
+  - cidr: 172.20.64.0/19
+    name: {{.awsRegion}}b
+    type: Public
+    zone: {{.awsRegion}}b
+  - cidr: 172.20.96.0/19
+    name: {{.awsRegion}}c
+    type: Public
+    zone: {{.awsRegion}}c
+  topology:
+    dns:
+      type: Public
+    masters: public
+    nodes: public
+
+---
+
+apiVersion: kops/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: {{.name}}
+  name: master-{{.awsRegion}}a
+spec:
+  image: kope.io/k8s-1.8-debian-jessie-amd64-hvm-ebs-2017-12-02
+  machineType: c4.large
+  maxSize: 1
+  minSize: 1
+  maxPrice: "{{.maxPrice}}"
+  nodeLabels:
+    kops.k8s.io/instancegroup: master-{{.awsRegion}}a
+  role: Master
+  additionalUserData:
+  - name: additionalHardening.sh
+    type: text/x-shellscript
+    content: |
+      #!/bin/sh
+      cd /tmp
+      wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+      sudo dpkg -i amazon-ssm-agent.deb
+      sudo systemctl start amazon-ssm-agent
+  subnets:
+  - {{.awsRegion}}a
+
+---
+
+apiVersion: kops/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: {{.name}}
+  name: master-{{.awsRegion}}b
+spec:
+  image: kope.io/k8s-1.8-debian-jessie-amd64-hvm-ebs-2017-12-02
+  machineType: c4.large
+  maxSize: 1
+  minSize: 1
+  maxPrice: "{{.maxPrice}}"
+  nodeLabels:
+    kops.k8s.io/instancegroup: master-{{.awsRegion}}b
+  role: Master
+  additionalUserData:
+  - name: additionalHardening.sh
+    type: text/x-shellscript
+    content: |
+      #!/bin/sh
+      cd /tmp
+      wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+      sudo dpkg -i amazon-ssm-agent.deb
+      sudo systemctl start amazon-ssm-agent
+  subnets:
+  - {{.awsRegion}}b
+
+---
+
+apiVersion: kops/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: {{.name}}
+  name: master-{{.awsRegion}}c
+spec:
+  image: kope.io/k8s-1.8-debian-jessie-amd64-hvm-ebs-2017-12-02
+  machineType: c4.large
+  maxSize: 1
+  minSize: 1
+  maxPrice: "{{.maxPrice}}"
+  nodeLabels:
+    kops.k8s.io/instancegroup: master-{{.awsRegion}}c
+  role: Master
+  additionalUserData:
+  - name: additionalHardening.sh
+    type: text/x-shellscript
+    content: |
+      #!/bin/sh
+      cd /tmp
+      wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+      sudo dpkg -i amazon-ssm-agent.deb
+      sudo systemctl start amazon-ssm-agent
+  subnets:
+  - {{.awsRegion}}c
+
+---
+
+apiVersion: kops/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: {{.name}}
+  name: nodes
+spec:
+  image: kope.io/k8s-1.8-debian-jessie-amd64-hvm-ebs-2017-12-02
+  machineType: c4.large
+  maxSize: 3
+  minSize: 3
+  maxPrice: "{{.maxPrice}}"
+  nodeLabels:
+    kops.k8s.io/instancegroup: nodes
+  role: Node
+  additionalUserData:
+  - name: additionalHardening.sh
+    type: text/x-shellscript
+    content: |
+      #!/bin/sh
+      LOCAL_IPV4=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
+
+      /sbin/iptables \
+        --append PREROUTING \
+        --destination 169.254.169.254 \
+        --protocol tcp \
+        --dport 80 \
+        --in-interface docker0 \
+        --jump DNAT \
+        --table nat \
+        --to-destination $LOCAL_IPV4:8000 \
+        --wait
+
+      /sbin/iptables \
+        --wait \
+        --insert INPUT 1 \
+        --protocol tcp \
+        --dport 80 \
+        \! \
+        --in-interface docker0 \
+        --jump DROP
+
+      cd /tmp
+      wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+      sudo dpkg -i amazon-ssm-agent.deb
+      sudo systemctl start amazon-ssm-agent
+  subnets:
+  - {{.awsRegion}}a
+  - {{.awsRegion}}b
+  - {{.awsRegion}}c

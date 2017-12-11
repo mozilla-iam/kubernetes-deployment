@@ -1,0 +1,60 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "kopsK8sEC2NodePerms",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeInstances"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Sid": "kopsK8sS3GetListBucket",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetBucketLocation",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::kops.security.allizom.org"
+            ]
+        },
+        {
+            "Sid": "kopsK8sS3NodeBucketSelectiveGet",
+            "Effect": "Allow",
+            "Action": [
+                "s3:Get*"
+            ],
+            "Resource": [
+                "arn:aws:s3:::kops.*/{{clustername}}/addons/*",
+                "arn:aws:s3:::kops.*/{{clustername}}/cluster.spec",
+                "arn:aws:s3:::kops.*/{{clustername}}/config",
+                "arn:aws:s3:::kops.*/{{clustername}}/instancegroup/*",
+                "arn:aws:s3:::kops.*/{{clustername}}/pki/issued/*",
+                "arn:aws:s3:::kops.*/{{clustername}}/pki/private/kube-proxy/*",
+                "arn:aws:s3:::kops.*/{{clustername}}/pki/private/kubelet/*",
+                "arn:aws:s3:::kops.*/{{clustername}}/pki/ssh/*",
+                "arn:aws:s3:::kops.*/{{clustername}}/secrets/dockerconfig"
+            ]
+        },
+        {
+            "Sid": "kopsK8sECR",
+            "Effect": "Allow",
+            "Action": [
+                "ecr:GetAuthorizationToken",
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:GetRepositoryPolicy",
+                "ecr:DescribeRepositories",
+                "ecr:ListImages",
+                "ecr:BatchGetImage"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
