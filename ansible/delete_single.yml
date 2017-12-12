@@ -1,5 +1,9 @@
 ---
 
+### Ansible playbook for immutable KOps in multi-account / region combos
+### Contributors : Andrew J Krug @andrewkrug irc: andrew
+### This is licensed under the Mozilla Public License 2.0
+
 - name: delete a stack
   hosts: localhost
   connection: local
@@ -10,6 +14,7 @@
       STAGE: "{{ lookup('env', 'STAGE') }}"
 
   tasks:
+    ### KOps requires we detach our custom policies prior to cluster teardown.
     - name: remove policy from role
       iam_policy:
         region: "{{AWS_REGION}}"
@@ -18,6 +23,7 @@
         policy_name: nodes.{{clustername}}
         state: absent
 
+    ### KOps requires we detach our custom policies prior to cluster teardown.
     - name: remove policy from role
       iam_policy:
         region: "{{AWS_REGION}}"
@@ -26,6 +32,7 @@
         policy_name: masters.{{clustername}}
         state: absent
 
+    ### KOps requires we detach our custom policies prior to cluster teardown.
     - name: remove policy from role
       iam_policy:
         region: "{{AWS_REGION}}"
@@ -34,22 +41,7 @@
         policy_name: assumable-roles.{{clustername}}
         state: absent
 
-    - name: remove all managed policies
-      iam_role:
-        name: nodes.{{clustername}}
-        assume_role_policy_document: "{{ lookup('file','trust-policy.json') }}"
-        state: absent
-        managed_policy:
-          -
-
-    - name: remove all managed policies
-      iam_role:
-        name: masters.{{clustername}}
-        assume_role_policy_document: "{{ lookup('file','trust-policy.json') }}"
-        state: absent
-        managed_policy:
-          -
-
+    ### Actually let KOps remove the cluster
     - name: delete the cluster
       shell: kops delete cluster {{clustername}} --yes
       args:

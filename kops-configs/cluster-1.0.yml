@@ -7,7 +7,7 @@ spec:
   api:
     dns: {}
   authorization:
-    alwaysAllow: {}
+    rbac: {}
   channel: stable
   cloudLabels:
     Application: Kubernetes-Reference
@@ -213,6 +213,9 @@ spec:
       wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
       sudo dpkg -i amazon-ssm-agent.deb
       sudo systemctl start amazon-ssm-agent
+      docker run --net=host \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        lyft/metadataproxy
   subnets:
   - {{.awsRegion}}a
   - {{.awsRegion}}b

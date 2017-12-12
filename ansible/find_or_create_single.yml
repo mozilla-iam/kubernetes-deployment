@@ -1,11 +1,17 @@
 ---
 
+### Ansible playbook for immutable KOps in multi-account / region combos
+### Contributors : Andrew J Krug @andrewkrug irc: andrew
+### This is licensed under the Mozilla Public License 2.0
+
 - name: provision or update a stack
   hosts: localhost
   connection: local
   gather_facts: false
 
   vars:
+      ### Fetch the important stuff from the users / CI Environment.
+      ### At least it is not credentials, right?
       AWS_REGION: "{{ lookup('env', 'AWS_REGION') }}"
       STAGE: "{{ lookup('env', 'STAGE') }}"
 
@@ -13,6 +19,8 @@
     - name: attempting to locate cluster
       debug: msg="attempting to locate cluster {{clustername}}"
 
+    ### Query the AWS account you are assumed role in.  Determine whether the
+    ### cluster exists by searching for running instances.
     - ec2_instance_facts:
         region: "{{AWS_REGION}}"
         filters:
@@ -20,12 +28,11 @@
           "tag:KubernetesCluster": "{{clustername}}"
       register: current_instances
 
+    ### Report the number of instances found by the search.
     - name: instances-found
       debug: msg="Located instances matching tag {{ current_instances['instances']|length }}."
 
-    - set_fact:
-        running_instances: current_instances['instances']|length
-
+    ### Render a new template from the configuration regardless of state.
     - name: render a new template
       vars:
         kops_values: "values/{{STAGE}}/{{AWS_REGION}}.yml"
@@ -35,6 +42,7 @@
       args:
         chdir: ../kops-configs/
 
+    ### If the cluster exists replace the existing yml configuration in the state store.
     - name: update cluster using the new template
       vars:
         kops_output: "rendered-templates/{{STAGE}}-{{AWS_REGION}}.yml"
@@ -43,12 +51,15 @@
         chdir: ../kops-configs/
       when: current_instances['instances']|length > 0
 
+    ### If the state store is updated then update the cluster.
     - name: trigger the proposal to update nodes in cluster
       shell: kops update cluster {{clustername}} --yes
       args:
         chdir: ../kops-configs/
       when: current_instances['instances']|length > 0
 
+    ### Trigger a rolling update to all nodes.  This will briefly cycle nodes out.
+    ### Hopefully your applications are as HA as your cluster when this runs ;)
     - name: rolling update the cluster
       vars:
         kops_output: "rendered-templates/{{STAGE}}-{{AWS_REGION}}.yml"
@@ -57,12 +68,14 @@
         chdir: ../kops-configs/
       when: current_instances['instances']|length > 0
 
+    ### Run a KOps Validation to determine that the cluster is healthy.
     - name: validate the cluster after the update
       shell: kops validate cluster {{clustername}}
       args:
         chdir: ../kops-configs/
       when: current_instances['instances']|length > 0
 
+    ### If the cluster does not exist yet create it.
     - name: create the cluster
       vars:
         kops_output: "rendered-templates/{{STAGE}}-{{AWS_REGION}}.yml"
@@ -71,12 +84,14 @@
         chdir: ../kops-configs/
       when: current_instances['instances']|length == 0
 
+    ### Import a default keypair for node ssh access.
     - name: import and associate the preferred keypair
       shell: kops create secret --name {{clustername}} sshpublickey admin -i infosec-infra.pub
       args:
         chdir: ../kops-configs/
       when: current_instances['instances']|length == 0
 
+    ### Actually run the KOps provisioner to build ASGs, instances, etc.
     - name: provision the nodes and masters
       shell: kops update cluster {{clustername}} --yes
       args:
@@ -87,6 +102,7 @@
         src: files/kops-master-iam-policy.json.j2
         dest: temp/kops-master-iam-policy.json
 
+    # Replace the Master Role with our customized one.  This is an inline policy.
     - name: update master IAM role with custom hardened role
       iam_policy:
         region: "{{AWS_REGION}}"
@@ -100,6 +116,7 @@
         src: files/kops-nodes-iam-policy.json.j2
         dest: temp/kops-nodes-iam-policy.json
 
+    # Replace the Node Role with our customized one.  This is an inline policy.
     - name: update node IAM role with custom hardened role
       iam_policy:
         region: "{{AWS_REGION}}"
@@ -113,6 +130,8 @@
         src: files/eis-assumable-roles.json.j2
         dest: temp/eis-assumable-roles.json
 
+    ### Add a policy to the node role that allows the nodes to assumeRole
+    ### for a whitelist of roles.
     - name: update node role with whitelist of assumable roles
       iam_policy:
         region: "{{AWS_REGION}}"
@@ -122,18 +141,42 @@
         state: present
         policy_document: temp/eis-assumable-roles.json
 
+    ### We use SSM to admin the cluster so we need to
+    ### Also add the trust policy for ssm.*
     - name: add SSM support for nodes
       iam_role:
         name: nodes.{{clustername}}
         assume_role_policy_document: "{{ lookup('file','trust-policy.json') }}"
         state: present
-        managed_policy:
-          - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
 
+    ### We use SSM to admin the cluster so we need to
+    ### Also add the trust policy for ssm.*
     - name: add SSM support for masters
       iam_role:
-        name: master.{{clustername}}
+        name: masters.{{clustername}}
         assume_role_policy_document: "{{ lookup('file','trust-policy.json') }}"
         state: present
-        managed_policy:
-          - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+
+    - template:
+        src: files/eis-ssm-execution.json.j2
+        dest: temp/eis-ssm-execution.json
+
+    ### Add a policy to the node role that allows ssm
+    - name: update masters role with ssm permissions
+      iam_policy:
+        region: "{{AWS_REGION}}"
+        iam_type: role
+        iam_name: masters.{{clustername}}
+        policy_name: ssm.{{clustername}}
+        state: present
+        policy_document: temp/eis-ssm-execution.json
+
+    ### Add a policy to the node role that allows ssm
+    - name: update node role with ssm permissions
+      iam_policy:
+        region: "{{AWS_REGION}}"
+        iam_type: role
+        iam_name: nodes.{{clustername}}
+        policy_name: ssm.{{clustername}}
+        state: present
+        policy_document: temp/eis-ssm-execution.json
