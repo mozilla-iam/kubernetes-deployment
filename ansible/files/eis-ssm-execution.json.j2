@@ -44,12 +44,7 @@
             "Action": [
                 "ec2:DescribeInstanceStatus"
             ],
-            "Resource": "*",
-            "Condition": {
-                "StringEquals": {
-                    "ec2:ResourceTag/KubernetesCluster": "{{clustername}}"
-                }
-            }
+            "Resource": "*"
         },
 
         {

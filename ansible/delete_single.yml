@@ -41,6 +41,15 @@
         policy_name: assumable-roles.{{clustername}}
         state: absent
 
+    ### Add a policy to the node role that allows ssm
+    - name: update node role with ssm permissions
+      iam_policy:
+        region: "{{AWS_REGION}}"
+        iam_type: role
+        iam_name: nodes.{{clustername}}
+        policy_name: ssm.{{clustername}}
+        state: absent
+
     ### Actually let KOps remove the cluster
     - name: delete the cluster
       shell: kops delete cluster {{clustername}} --yes
