@@ -15,7 +15,32 @@
       AWS_REGION: "{{ lookup('env', 'AWS_REGION') }}"
       STAGE: "{{ lookup('env', 'STAGE') }}"
 
+
   tasks:
+    - name: generate_codename
+      script: /usr/local/bin/python3 ./generate-codename.py
+      register: codename
+
+    - name: clustername not supplied
+      debug: msg="clustername not supplied setting fact of clustername {{codename.stdout}}"
+      when: clustername is not defined
+
+    - name: find aws account id
+      shell: aws sts get-caller-identity|jq -r ".Account"
+      register: account_id
+
+    - name: set dev domain name
+      set_fact: domain="infra.security.allizom.org"
+      when: clustername is not defined and account_id.stdout == "656532927350"
+
+    - name: set prod domain name
+      set_fact: domain="infra.security.mozilla.org"
+      when: clustername is not defined and account_id.stdout == "371522382791"
+
+    - name: set clustername
+      set_fact: clustername="{{ codename.stdout }}.{{domain}}"
+      when: clustername is not defined
+
     - name: attempting to locate cluster
       debug: msg="attempting to locate cluster {{clustername}}"
 
@@ -31,6 +56,11 @@
     ### Report the number of instances found by the search.
     - name: instances-found
       debug: msg="Located instances matching tag {{ current_instances['instances']|length }}."
+
+    ### Render a value template
+    - template:
+        src: "../kops-configs/values/{{STAGE}}/{{AWS_REGION}}.yml.j2"
+        dest: "../kops-configs/values/{{STAGE}}/{{AWS_REGION}}.yml"
 
     ### Render a new template from the configuration regardless of state.
     - name: render a new template
@@ -64,13 +94,6 @@
       vars:
         kops_output: "rendered-templates/{{STAGE}}-{{AWS_REGION}}.yml"
       shell: kops update cluster {{clustername}} --yes
-      args:
-        chdir: ../kops-configs/
-      when: current_instances['instances']|length > 0
-
-    ### Run a KOps Validation to determine that the cluster is healthy.
-    - name: validate the cluster after the update
-      shell: kops validate cluster {{clustername}}
       args:
         chdir: ../kops-configs/
       when: current_instances['instances']|length > 0
@@ -137,7 +160,7 @@
         region: "{{AWS_REGION}}"
         iam_type: role
         iam_name: nodes.{{clustername}}
-        policy_name: assumable-roles.{{clustername}}
+        policy_name: assumable-roles
         state: present
         policy_document: temp/eis-assumable-roles.json
 
@@ -167,16 +190,88 @@
         region: "{{AWS_REGION}}"
         iam_type: role
         iam_name: masters.{{clustername}}
-        policy_name: ssm.{{clustername}}
+        policy_name: ssm
         state: present
         policy_document: temp/eis-ssm-execution.json
 
     ### Add a policy to the node role that allows ssm
+
     - name: update node role with ssm permissions
       iam_policy:
         region: "{{AWS_REGION}}"
         iam_type: role
         iam_name: nodes.{{clustername}}
-        policy_name: ssm.{{clustername}}
+        policy_name: ssm
         state: present
         policy_document: temp/eis-ssm-execution.json
+
+    ### Create the ingress controller role
+    - name: Create IAM role for the ingress controller service
+      iam:
+        iam_type: role
+        name: alb-ingress
+        state: present
+        trust_policy:
+          Version: '2012-10-17'
+          Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::{{account_id.stdout}}:role/nodes.{{clustername}}
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+
+    - template:
+        src: files/alb-ingress.json.j2
+        dest: temp/alb-ingress.json
+
+    - name: attach policy to the ingress controller role
+      iam_policy:
+        region: "{{AWS_REGION}}"
+        iam_type: role
+        iam_name: alb-ingress
+        policy_name: ingress-permissions
+        state: present
+        policy_document: temp/alb-ingress.json
+
+    ### Build a list of anything YAML
+    - name: Enumerate configurations to deploy
+      find:
+        paths: ../kubernetes/
+        patterns: '*.yml,*.yaml'
+        recurse: yes
+      register: deploy_yaml
+
+    ### Run a KOps Validation to determine that the cluster is healthy.
+    - name: validate the cluster after the update
+      shell: kops validate cluster {{clustername}}
+      args:
+        chdir: ../kops-configs/
+      retries: 10
+      delay: 30
+      when: current_instances['instances']|length > 0
+
+    - name: tell the user this is the first time this cluster was created.
+      debug: msg="This is the first time this cluster has come up.  Wait 5-10 minutes and then run kops validate cluster {{clustername}}"
+      when: current_instances['instances']|length == 0
+
+    - name: tell the user to add the role to trust relationships.
+      debug: msg="Dont forget to add our node role to all the trust relationships of any other roles it may need to assume."
+      when: current_instances['instances']|length == 0
+
+    ### Fetch the cluster admin creds and use that context to bootstrap
+    - name: fetch creds and switch context
+      shell: kops export kubecfg
+      when: current_instances['instances']|length > 0
+
+    - template:
+        src: ../kubernetes/services/alb-ingress-controller.yaml.j2
+        dest: ../kubernetes/services/alb-ingress-controller.yaml
+
+    ### Deploy each yaml regardless of what it is.
+    - name: deploy all the things
+      shell: kubectl apply -f {{ item['path']}}
+      with_items: "{{ deploy_yaml['files'] }}"
+      when: current_instances['instances']|length > 0

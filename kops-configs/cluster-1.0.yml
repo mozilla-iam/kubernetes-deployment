@@ -7,7 +7,9 @@ spec:
   api:
     dns: {}
   authorization:
-    rbac: {}
+    alwaysAllow: {}
+  kubeAPIServer:
+    authorizationRbacSuperUser: admin
   channel: stable
   cloudLabels:
     Application: Kubernetes-Reference
@@ -187,17 +189,20 @@ spec:
     type: text/x-shellscript
     content: |
       #!/bin/sh
+      cd /tmp
+      wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+      sudo dpkg -i amazon-ssm-agent.deb
+      sudo systemctl start amazon-ssm-agent
       LOCAL_IPV4=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
-
       /sbin/iptables \
         --append PREROUTING \
         --destination 169.254.169.254 \
         --protocol tcp \
         --dport 80 \
-        --in-interface docker0 \
+        --in-interface cali+ \
         --jump DNAT \
         --table nat \
-        --to-destination $LOCAL_IPV4:8000 \
+        --to-destination $LOCAL_IPV4:8181 \
         --wait
 
       /sbin/iptables \
@@ -209,13 +214,15 @@ spec:
         --in-interface docker0 \
         --jump DROP
 
-      cd /tmp
-      wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
-      sudo dpkg -i amazon-ssm-agent.deb
-      sudo systemctl start amazon-ssm-agent
-      docker run --net=host \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        lyft/metadataproxy
+      /sbin/iptables \
+        --wait \
+        --insert INPUT 1 \
+        --protocol tcp \
+        --dport 80 \
+        \! \
+        --in-interface cali+ \
+        --jump DROP
+
   subnets:
   - {{.awsRegion}}a
   - {{.awsRegion}}b

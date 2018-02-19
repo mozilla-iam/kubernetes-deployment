@@ -1,0 +1,47 @@
+#
+# Showing all available options for kubernetes services with loadbalancers setup
+# Reference - https://github.com/kubernetes/kubernetes/blob/release-1.4/pkg/cloudprovider/providers/aws/aws.go
+#
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:656532927350:certificate/ade32b62-e360-4ecd-8c3c-f44671dba94f
+    service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: "ELBSecurityPolicy-TLS-1-2-2017-01"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+  name: sso-dashboard
+  labels:
+    run: sso-dashboard
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 443
+    targetPort: 8000
+    protocol: TCP
+  selector:
+    run: sso-dashboard
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: sso-dashboard
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        run: sso-dashboard
+      annotations:
+        iam.amazonaws.com/role: SSO-Dashboard-Role
+    spec:
+      containers:
+      - name: sso-dashboard
+        image: 656532927350.dkr.ecr.us-west-2.amazonaws.com/sso-dashboard:latest
+        ports:
+          - containerPort: 8000
+        env:
+        - name: environment
+          value: Development
+        - name: AWS_DEFAULT_REGION
+          value: us-west-2
