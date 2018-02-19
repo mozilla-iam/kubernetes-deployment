@@ -199,10 +199,10 @@ spec:
         --destination 169.254.169.254 \
         --protocol tcp \
         --dport 80 \
-        --in-interface docker0 \
+        --in-interface cali+ \
         --jump DNAT \
         --table nat \
-        --to-destination $LOCAL_IPV4:8000 \
+        --to-destination $LOCAL_IPV4:8181 \
         --wait
 
       /sbin/iptables \
@@ -213,6 +213,16 @@ spec:
         \! \
         --in-interface docker0 \
         --jump DROP
+
+      /sbin/iptables \
+        --wait \
+        --insert INPUT 1 \
+        --protocol tcp \
+        --dport 80 \
+        \! \
+        --in-interface cali+ \
+        --jump DROP
+
   subnets:
   - {{.awsRegion}}a
   - {{.awsRegion}}b

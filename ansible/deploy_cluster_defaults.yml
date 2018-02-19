@@ -1,0 +1,32 @@
+---
+
+### Ansible playbook for immutable KOps in multi-account / region combos
+### Contributors : Andrew J Krug @andrewkrug irc: andrew
+### This is licensed under the Mozilla Public License 2.0
+
+- name: deploy default pods and services
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+      AWS_REGION: "{{ lookup('env', 'AWS_REGION') }}"
+      STAGE: "{{ lookup('env', 'STAGE') }}"
+
+  tasks:
+    ### Build a list of anything YAML
+    - name: Enumerate configurations to deploy
+      find:
+        paths: ../kubernetes/
+        patterns: '*.yml,*.yaml'
+        recurse: yes
+      register: deploy_yaml
+
+    ### Fetch the cluster admin creds and use that context to bootstrap
+    - name: fetch creds and switch context
+      shell: kops export kubecfg
+
+    ### Deploy each yaml regardless of what it is. 
+    - name: deploy all the things
+      shell: kubectl apply -f {{ item['path']}}
+      with_items: "{{ deploy_yaml['files'] }}"

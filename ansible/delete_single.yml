@@ -37,8 +37,8 @@
       iam_policy:
         region: "{{AWS_REGION}}"
         iam_type: role
-        iam_name: assumable-roles.{{clustername}}
-        policy_name: assumable-roles.{{clustername}}
+        iam_name: nodes.{{clustername}}
+        policy_name: assumable-roles
         state: absent
 
     ### Add a policy to the node role that allows ssm
@@ -47,7 +47,7 @@
         region: "{{AWS_REGION}}"
         iam_type: role
         iam_name: nodes.{{clustername}}
-        policy_name: ssm.{{clustername}}
+        policy_name: ssm
         state: absent
 
     ### Actually let KOps remove the cluster
