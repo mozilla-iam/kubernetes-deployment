@@ -108,10 +108,13 @@
       when: current_instances['instances']|length == 0
 
     ### Import a default keypair for node ssh access.
+    - name: generate a keypair for the cluster
+      shell: ssh-keygen -t rsa -f temp/{{clustername}} -N ''
+      when: current_instances['instances']|length == 0
+
+    ### Import a default keypair for node ssh access.
     - name: import and associate the preferred keypair
-      shell: kops create secret --name {{clustername}} sshpublickey admin -i infosec-infra.pub
-      args:
-        chdir: ../kops-configs/
+      shell: kops create secret --name {{clustername}} sshpublickey admin -i temp/{{clustername}}.pub
       when: current_instances['instances']|length == 0
 
     ### Actually run the KOps provisioner to build ASGs, instances, etc.
@@ -150,8 +153,8 @@
         policy_document: temp/kops-nodes-iam-policy.json
 
     - template:
-        src: files/eis-assumable-roles.json.j2
-        dest: temp/eis-assumable-roles.json
+        src: files/kubernetes-assumable-roles.json.j2
+        dest: temp/kubernetes-assumable-roles.json
 
     ### Add a policy to the node role that allows the nodes to assumeRole
     ### for a whitelist of roles.
@@ -162,7 +165,7 @@
         iam_name: nodes.{{clustername}}
         policy_name: assumable-roles
         state: present
-        policy_document: temp/eis-assumable-roles.json
+        policy_document: temp/kubernetes-assumable-roles.json
 
     ### We use SSM to admin the cluster so we need to
     ### Also add the trust policy for ssm.*
@@ -181,8 +184,8 @@
         state: present
 
     - template:
-        src: files/eis-ssm-execution.json.j2
-        dest: temp/eis-ssm-execution.json
+        src: files/kubernetes-ssm-execution.json.j2
+        dest: temp/kubernetes-ssm-execution.json
 
     ### Add a policy to the node role that allows ssm
     - name: update masters role with ssm permissions
@@ -192,7 +195,7 @@
         iam_name: masters.{{clustername}}
         policy_name: ssm
         state: present
-        policy_document: temp/eis-ssm-execution.json
+        policy_document: temp/kubernetes-ssm-execution.json
 
     ### Add a policy to the node role that allows ssm
 
@@ -203,7 +206,7 @@
         iam_name: nodes.{{clustername}}
         policy_name: ssm
         state: present
-        policy_document: temp/eis-ssm-execution.json
+        policy_document: temp/kubernetes-ssm-execution.json
 
     ### Create the ingress controller role
     - name: Create IAM role for the ingress controller service

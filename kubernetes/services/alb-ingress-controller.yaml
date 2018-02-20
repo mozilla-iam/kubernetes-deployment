@@ -55,7 +55,7 @@ spec:
           # by the ALB Ingress Controller, providing distinction between
           # clusters.
         - name: CLUSTER_NAME
-          value: black-1726.infra.security.allizom.org
+          value: blue-panda.infra.iam.mozilla.com
           # AWS key id for authenticating with the AWS API.
           # This is only here for examples. It's recommended you instead use
           # a project like kube2iam for granting access.

@@ -1,5 +1,0 @@
-name: black-1726.infra.security.allizom.org
-maxPrice: "0.04"
-awsRegion: us-west-2
-zoneId: Z1AY0K1T7473M8
-kopsState: s3://kops.security.allizom.org/

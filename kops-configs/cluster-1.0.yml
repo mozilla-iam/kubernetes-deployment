@@ -12,11 +12,12 @@ spec:
     authorizationRbacSuperUser: admin
   channel: stable
   cloudLabels:
-    Application: Kubernetes-Reference
-    Owner: Andrew Krug
-    Project: IAM
-    Team: InfoSec
-    Cost_Center: "1420"
+    environment: prod
+    app: kubernetes
+    owner: Andrew Krug
+    project: iam
+    team: infoSec
+    cost_center: "1420"
   cloudProvider: aws
   configBase: {{.kopsState}}{{.name}}
   dnsZone: {{.zoneId}}
