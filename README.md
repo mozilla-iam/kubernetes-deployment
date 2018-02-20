@@ -2,6 +2,12 @@
 
 ## Turning up a cluster for N00Bz
 
+__Requirements__
+
+* [Ansible](https://www.ansible.com/)
+* [Faker](https://github.com/joke2k/faker)
+* [jq](https://stedolan.github.io/jq/)
+
 __Exports__
 
 ```bash
