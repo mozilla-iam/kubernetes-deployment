@@ -1,3 +1,11 @@
+#!/usr/bin/env python
+
 from faker import Faker
+
 fake = Faker()
-print("{}-{}{}".format(fake.safe_color_name(), fake.day_of_month(), fake.day_of_month()), end="")
+
+
+if __name__ == "__main__":
+    color = fake.safe_color_name()
+    day = fake.day_of_month()
+    print("{}-{}".format(color, day))

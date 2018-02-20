@@ -17,8 +17,8 @@
 
 
   tasks:
-    - name: generate_codename
-      script: /usr/local/bin/python3 ./generate-codename.py
+    - name: Generate codename
+      script: ./generate-codename.py
       register: codename
 
     - name: clustername not supplied
