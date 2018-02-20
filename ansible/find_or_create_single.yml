@@ -32,14 +32,6 @@
       shell: aws sts get-caller-identity|jq -r ".Account"
       register: account_id
 
-    - name: set dev domain name
-      set_fact: domain="infra.security.allizom.org"
-      when: clustername is not defined and account_id.stdout == "656532927350"
-
-    - name: set prod domain name
-      set_fact: domain="infra.security.mozilla.org"
-      when: clustername is not defined and account_id.stdout == "371522382791"
-
     - name: set clustername
       set_fact: clustername="{{ codename.stdout }}.{{domain}}"
       when: clustername is not defined
