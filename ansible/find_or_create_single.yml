@@ -17,6 +17,9 @@
 
 
   tasks:
+    - name: Remove temp files
+      shell: find temp -type f -not -name '.keep' -delete
+
     - name: Generate codename
       script: ./generate-codename.py
       register: codename
