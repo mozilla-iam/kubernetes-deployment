@@ -207,8 +207,9 @@
     - name: Create IAM role for the ingress controller service
       iam:
         iam_type: role
-        name: alb-ingress
+        name: alb-ingress.{{clustername}}
         state: present
+        path: /kubernetes/assumeable/
         trust_policy:
           Version: '2012-10-17'
           Statement:
@@ -220,6 +221,10 @@
             Effect: Allow
             Principal:
               Service: ec2.amazonaws.com
+      register: alb_role
+
+    - name: Alb role arn notification.
+      debug: msg="{{alb_role['role_result']['arn']}}"
 
     - template:
         src: files/alb-ingress.json.j2
