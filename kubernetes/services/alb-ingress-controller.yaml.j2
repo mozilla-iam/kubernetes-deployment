@@ -55,7 +55,11 @@ spec:
           # by the ALB Ingress Controller, providing distinction between
           # clusters.
         - name: CLUSTER_NAME
+<<<<<<< HEAD:kubernetes/services/alb-ingress-controller.yaml.j2
           value: {{clustername}}
+=======
+          value: green-narwahl.infra.iam.mozilla.com
+>>>>>>> switch to rbac:kubernetes/services/alb-ingress-controller.yaml
           # AWS key id for authenticating with the AWS API.
           # This is only here for examples. It's recommended you instead use
           # a project like kube2iam for granting access.

@@ -7,7 +7,7 @@ spec:
   api:
     dns: {}
   authorization:
-    alwaysAllow: {}
+    rbac: {}
   kubeAPIServer:
     authorizationRbacSuperUser: admin
   channel: stable
@@ -56,8 +56,6 @@ spec:
     calico:
       crossSubnet: true
   nonMasqueradeCIDR: 100.64.0.0/10
-  sshAccess:
-  - 0.0.0.0/0
   subnets:
   - cidr: 172.20.32.0/19
     name: {{.awsRegion}}a
