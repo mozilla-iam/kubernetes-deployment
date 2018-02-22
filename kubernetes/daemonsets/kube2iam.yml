@@ -4,6 +4,7 @@ metadata:
   name: kube2iam
   labels:
     app: kube2iam
+  namespace: kube-system
 spec:
   template:
     metadata:
@@ -18,6 +19,7 @@ spec:
             - "--iptables=true"
             - "--host-ip=$(HOST_IP)"
             - "--auto-discover-base-arn"
+            - "--debug"
           env:
             - name: HOST_IP
               valueFrom:
