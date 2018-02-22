@@ -234,7 +234,7 @@
       iam_policy:
         region: "{{AWS_REGION}}"
         iam_type: role
-        iam_name: alb-ingress
+        iam_name: alb-ingress.{{clustername}}
         policy_name: ingress-permissions
         state: present
         policy_document: temp/alb-ingress.json
