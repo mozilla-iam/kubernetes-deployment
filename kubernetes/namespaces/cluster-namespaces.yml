@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -7,3 +8,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: parsys
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ci
