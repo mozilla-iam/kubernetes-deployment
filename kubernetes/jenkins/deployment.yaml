@@ -1,0 +1,68 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: jenkins
+  namespace: ci
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ci-jenkins
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - name: ci-jenkins-oidc-proxy
+        image: 320464205386.dkr.ecr.us-west-2.amazonaws.com/mozilla.oidc.accessproxy:latest
+        ports:
+          - containerPort: 80
+        env:
+          - name: discovery_url
+            value: "https://auth.mozilla.auth0.com/.well-known/openid-configuration"
+          - name: backend
+            value: "http://127.0.0.1:8080"
+          - name: allowed_group
+            value: "mozilliansorg_iam-project"
+          - name: client_id
+            valueFrom:
+              secretKeyRef:
+                name: ci-jenkins-proxy-secret
+                key: oidc_client_id
+          - name: client_secret
+            valueFrom:
+              secretKeyRef:
+                name: ci-jenkins-proxy-secret
+                key: oidc_client_secret
+
+      - name: ci-jenkins
+        image: jenkins/jenkins:lts
+        ports:
+        - containerPort: 8080
+        - containerPort: 50000
+        readinessProbe:
+          httpGet:
+            path: /login
+            port: 8080
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 2
+          failureThreshold: 5
+        env:
+        - name: JAVA_OPTS
+          value: '-Xmx1400m'
+        volumeMounts:
+        - mountPath: /var/jenkins_home
+          name: jenkins-home
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1500Mi
+          requests:
+            cpu: 500m
+            memory: 1500Mi
+      volumes:
+      - name: jenkins-home
+        persistentVolumeClaim:
+          claimName: ci-jenkins-master-pvc

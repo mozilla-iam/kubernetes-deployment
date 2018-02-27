@@ -1,0 +1,21 @@
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: jenkins-ingress
+  namespace: ci
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/subnets: subnet-3fbf1565,subnet-1f4eac54,subnet-721edd0b
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:320464205386:certificate/170c1f19-295d-48e9-a386-fd528f833471
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/tags: Environment=jenkins,Group=ci
+spec:
+  rules:
+  - host: jenkins.ops.iam.mozilla.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: jenkins-oidc-proxy
+          servicePort: 80
