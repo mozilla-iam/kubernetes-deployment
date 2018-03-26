@@ -52,7 +52,7 @@ __Note:__ this may have been deployed for you depending on the state of our clus
 ```bash
 ### From the cluster context.  ( You loaded the secrets )
 
-kubectl create -f https://raw.githubusercontent.com/kubernetes/kops/master/addons/kubernetes-dashboard/v1.7.1.yaml
+kubectl create -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.8.3/src/deploy/recommended/kubernetes-dashboard.yaml
 
 kops get secrets kube --type secret -oplaintext
 ```
