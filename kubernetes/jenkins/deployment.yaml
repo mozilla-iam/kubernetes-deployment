@@ -38,6 +38,7 @@ spec:
 
       - name: ci-jenkins
         image: jenkins/jenkins:lts
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         - containerPort: 50000
