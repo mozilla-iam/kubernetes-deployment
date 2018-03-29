@@ -10,6 +10,8 @@ spec:
     metadata:
       labels:
         app: ci-jenkins
+      annotations:
+        iam.amazonaws.com/role: arn:aws:iam::320464205386:role/iam-jenkins
     spec:
       securityContext:
         fsGroup: 1000
